@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuraCatalog - AI Catalog Image Generation Dashboard</title>
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom Styling and Utilities -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            outfit: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            slate: {
+              950: '#030712',
+            },
+            accent: {
+              indigo: '#6366f1',
+              violet: '#8b5cf6',
+              fuchsia: '#d946ef',
+            }
+          },
+          backdropBlur: {
+            xs: '2px',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* Glow animation background */
+    .bg-glow {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.15;
+      z-index: 0;
+      pointer-events: none;
+    }
+    
+    /* Active scanner line for garment analysis */
+    @keyframes scan {
+      0%, 100% {
+        top: 0%;
+        opacity: 0.8;
+      }
+      50% {
+        top: 100%;
+        opacity: 0.8;
+      }
+    }
+    .scanner-line {
+      animation: scan 3s linear infinite;
+    }
+
+    /* Pulse glow for running steps */
+    @keyframes pulse-glow {
+      0%, 100% {
+        box-shadow: 0 0 5px rgba(99, 102, 241, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+      }
+    }
+    .pulse-glow {
+      animation: pulse-glow 2s infinite;
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased overflow-hidden selection:bg-indigo-500 selection:text-white">
+  
+  <!-- Glowing Background Orbs -->
+  <div class="bg-glow bg-indigo-600 top-[-10%] right-[10%]"></div>
+  <div class="bg-glow bg-violet-600 bottom-[10%] left-[-5%]"></div>
+  
+  <!-- App Container -->
+  <div class="flex h-full overflow-hidden relative z-10">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 border-r border-slate-800 bg-slate-950/80 backdrop-blur-xl flex flex-col justify-between p-6 select-none shrink-0">
+      <div>
+        <!-- Logo -->
+        <div class="flex items-center space-x-3 mb-8 cursor-pointer" onclick="switchView('dashboard')">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <i data-lucide="sparkles" class="text-white h-5 w-5"></i>
+          </div>
+          <div>
+            <h1 class="font-outfit font-bold text-lg leading-tight tracking-wider bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AURA<span class="text-indigo-400">CATALOG</span></h1>
+            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">AI Fashion Suite</span>
+          </div>
+        </div>
+        
+        <!-- Navigation Menu -->
+        <nav class="space-y-1.5">
+          <button id="nav-dashboard" onclick="switchView('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-slate-800/40 border border-slate-700/30 text-indigo-400">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>Dashboard</span>
+          </button>
+          <button id="nav-generate" onclick="switchView('generate')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/50">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>New Generation</span>
+          </button>
+          <button id="nav-admin" onclick="switchView('admin')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/50">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+            <span>Admin Console</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Credit usage tracker -->
+      <div class="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950 border border-slate-800 flex flex-col space-y-3">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-slate-400 font-medium flex items-center gap-1.5">
+            <i data-lucide="coins" class="w-3.5 h-3.5 text-indigo-400"></i> Credits Available
+          </span>
+          <span id="credits-badge" class="font-bold text-white bg-slate-800 px-2 py-0.5 rounded-md">84</span>
+        </div>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          <div id="credits-bar" class="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full" style="width: 84%;"></div>
+        </div>
+        <p class="text-[10px] text-slate-500">Credits replenish monthly. Contact admin for extra quota.</p>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-950/20 overflow-hidden">
+      
+      <!-- Top header bar -->
+      <header class="h-16 border-b border-slate-800/60 bg-slate-950/40 backdrop-blur-md flex items-center justify-between px-8 select-none shrink-0 z-20">
+        <div class="flex items-center space-x-3">
+          <h2 id="page-title" class="font-outfit font-semibold text-lg text-slate-200">Dashboard</h2>
+        </div>
+        
+        <!-- User account block -->
+        <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-3 bg-slate-900/40 border border-slate-800/80 px-3.5 py-1.5 rounded-xl">
+            <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-xs text-slate-300 font-medium">Pipeline: Active</span>
+          </div>
+          
+          <div class="h-8 w-px bg-slate-800"></div>
+          
+          <div class="flex items-center space-x-3 cursor-pointer group">
+            <div class="text-right">
+              <p class="text-xs font-semibold text-slate-300 group-hover:text-white transition-colors">Mohit Saini</p>
+              <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Store Manager</p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-violet-500/10 border border-violet-400/20 group-hover:scale-105 transition-all">
+              MS
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- View Containers -->
+      <div class="flex-1 overflow-y-auto relative p-8">
+        
+        <!-- SCREEN 1: HOME DASHBOARD -->
+        <section id="view-dashboard" class="space-y-8 max-w-7xl mx-auto">
+          <!-- Stat cards grid -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl flex items-center space-x-5 shadow-lg shadow-black/10">
+              <div class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
+                <i data-lucide="image" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Images Generated</p>
+                <h3 id="stat-total-images" class="text-3xl font-outfit font-bold text-slate-100 mt-1">1,248</h3>
+              </div>
+            </div>
+            <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl flex items-center space-x-5 shadow-lg shadow-black/10">
+              <div class="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl text-violet-400">
+                <i data-lucide="shirt" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Products Processed</p>
+                <h3 id="stat-total-products" class="text-3xl font-outfit font-bold text-slate-100 mt-1">208</h3>
+              </div>
+            </div>
+            <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl flex items-center space-x-5 shadow-lg shadow-black/10">
+              <div class="p-3 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl text-fuchsia-400">
+                <i data-lucide="hourglass" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Avg Processing Time</p>
+                <h3 class="text-3xl font-outfit font-bold text-slate-100 mt-1">2.4m</h3>
+              </div>
+            </div>
+            <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl flex items-center space-x-5 shadow-lg shadow-black/10">
+              <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                <i data-lucide="coins" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider">Credits Usage</p>
+                <h3 class="text-3xl font-outfit font-bold text-slate-100 mt-1">91.6%</h3>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts and Analytics row -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Generation History Chart (SVG based) -->
+            <div class="lg:col-span-2 bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl">
+              <div class="flex justify-between items-center mb-6">
+                <div>
+                  <h4 class="font-outfit font-semibold text-slate-200">Catalog Generation Volume</h4>
+                  <p class="text-xs text-slate-500">Weekly breakdown of generated products</p>
+                </div>
+                <div class="flex gap-2">
+                  <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-800 text-slate-300">Last 30 Days</span>
+                </div>
+              </div>
+              <!-- Custom SVG Line Chart -->
+              <div class="relative h-60 w-full flex items-end">
+                <svg class="absolute inset-0 h-full w-full" viewBox="0 0 600 240" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3"></stop>
+                      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"></stop>
+                    </linearGradient>
+                  </defs>
+                  <!-- Grid Lines -->
+                  <line x1="0" y1="40" x2="600" y2="40" stroke="#1e293b" stroke-dasharray="4" />
+                  <line x1="0" y1="100" x2="600" y2="100" stroke="#1e293b" stroke-dasharray="4" />
+                  <line x1="0" y1="160" x2="600" y2="160" stroke="#1e293b" stroke-dasharray="4" />
+                  <!-- Filled Area -->
+                  <path d="M 0 200 L 80 180 L 160 190 L 240 120 L 320 140 L 400 90 L 480 70 L 560 50 L 600 50 L 600 220 L 0 220 Z" fill="url(#chart-glow)" />
+                  <!-- Curved Line -->
+                  <path d="M 0 200 Q 40 190, 80 180 T 160 190 T 240 120 T 320 140 T 400 90 T 480 70 T 560 50 T 600 50" fill="none" stroke="url(#chart-line-grad)" stroke-width="3" stroke-linecap="round" />
+                  <!-- Linear gradient for stroke -->
+                  <linearGradient id="chart-line-grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#6366f1" />
+                    <stop offset="50%" stop-color="#8b5cf6" />
+                    <stop offset="100%" stop-color="#d946ef" />
+                  </linearGradient>
+                  <!-- Interactivity dots -->
+                  <circle cx="240" cy="120" r="5" fill="#8b5cf6" stroke="#fff" stroke-width="2" />
+                  <circle cx="480" cy="70" r="5" fill="#8b5cf6" stroke="#fff" stroke-width="2" />
+                  <circle cx="560" cy="50" r="5" fill="#d946ef" stroke="#fff" stroke-width="2" />
+                </svg>
+                <div class="absolute top-[100px] left-[250px] bg-slate-900 border border-slate-800 px-2 py-1 rounded text-[10px] text-slate-300 font-semibold shadow">
+                  Week 3: 42 outfits
+                </div>
+                <!-- X-Axis Labels -->
+                <div class="w-full flex justify-between text-[10px] text-slate-500 font-medium px-2 pt-2 border-t border-slate-800">
+                  <span>Jun 20</span>
+                  <span>Jun 27</span>
+                  <span>Jul 04</span>
+                  <span>Jul 11</span>
+                  <span>Jul 18</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Credits consumption Donut (SVG based) -->
+            <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+              <div>
+                <h4 class="font-outfit font-semibold text-slate-200">Quota Allocation</h4>
+                <p class="text-xs text-slate-500">Current billing cycle distribution</p>
+              </div>
+              
+              <div class="relative flex items-center justify-center my-6">
+                <!-- SVG Donut Chart -->
+                <svg width="160" height="160" class="transform -rotate-90">
+                  <circle cx="80" cy="80" r="65" stroke="#1e293b" stroke-width="16" fill="transparent" />
+                  <!-- 84% stroke dasharray: 2*pi*r = 408.4. Stroke length = 408.4 * 0.84 = 343 -->
+                  <circle cx="80" cy="80" r="65" stroke="url(#donut-grad)" stroke-width="16" fill="transparent" 
+                          stroke-dasharray="408.4" stroke-dashoffset="65" stroke-linecap="round" />
+                  <defs>
+                    <linearGradient id="donut-grad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stop-color="#6366f1" />
+                      <stop offset="100%" stop-color="#d946ef" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="absolute text-center">
+                  <span id="donut-percentage" class="text-3xl font-outfit font-bold text-white leading-none">84%</span>
+                  <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Remaining</p>
+                </div>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                    <span class="text-slate-400">Used (Active)</span>
+                  </div>
+                  <span class="font-bold text-slate-200">16 Credits</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+                    <span class="text-slate-400">Free / Buffer</span>
+                  </div>
+                  <span class="font-bold text-slate-200">84 Credits</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Projects -->
+          <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl">
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h4 class="font-outfit font-semibold text-slate-200">Recent Projects</h4>
+                <p class="text-xs text-slate-500">Select a project to review catalog images or resume work</p>
+              </div>
+              <button onclick="switchView('generate')" class="flex items-center space-x-2 text-xs font-semibold px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-xl transition-all shadow-md shadow-indigo-500/10">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                <span>Generate Outfit</span>
+              </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr class="border-b border-slate-800/80 text-slate-400 font-semibold text-xs tracking-wider uppercase">
+                    <th class="pb-3 pl-4">Product Details</th>
+                    <th class="pb-3">SKU</th>
+                    <th class="pb-3">Category</th>
+                    <th class="pb-3">Gender / Age</th>
+                    <th class="pb-3">Created</th>
+                    <th class="pb-3 pr-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="projects-list-body" class="divide-y divide-slate-800/40 text-slate-300">
+                  <!-- Row 1 (Frock) -->
+                  <tr class="group hover:bg-slate-900/30 transition-all">
+                    <td class="py-4 pl-4 flex items-center space-x-3.5">
+                      <div class="w-11 h-11 rounded-lg bg-slate-850 border border-slate-800 overflow-hidden shrink-0">
+                        <img src="assets/frock_flat_front.jpg" class="w-full h-full object-cover" alt="Floral Frock">
+                      </div>
+                      <div>
+                        <p class="font-semibold text-slate-200">Daisy Dreams Summer Frock</p>
+                        <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded mt-1 inline-block">6 Images Ready</span>
+                      </div>
+                    </td>
+                    <td class="py-4 font-mono text-xs text-slate-400">SKU-7798</td>
+                    <td class="py-4">Frock</td>
+                    <td class="py-4">
+                      <span class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20 text-[10px] font-bold">Girl</span>
+                        <span class="text-slate-400 text-xs">3-4 Years</span>
+                      </span>
+                    </td>
+                    <td class="py-4 text-xs text-slate-500">Today, 2:45 PM</td>
+                    <td class="py-4 pr-4 text-right">
+                      <button onclick="loadSampleProject('frock')" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-200 group-hover:bg-indigo-600 group-hover:border-indigo-500 group-hover:text-white transition-all">
+                        View Results
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- Row 2 (Boy Co-ord Set) -->
+                  <tr class="group hover:bg-slate-900/30 transition-all">
+                    <td class="py-4 pl-4 flex items-center space-x-3.5">
+                      <div class="w-11 h-11 rounded-lg bg-slate-850 border border-slate-800 overflow-hidden shrink-0">
+                        <img src="assets/boy_flat_front.jpg" class="w-full h-full object-cover" alt="Yellow Linen Set">
+                      </div>
+                      <div>
+                        <p class="font-semibold text-slate-200">Linen Sunshine Co-ord Set</p>
+                        <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded mt-1 inline-block">6 Images Ready</span>
+                      </div>
+                    </td>
+                    <td class="py-4 font-mono text-xs text-slate-400">SKU-2091</td>
+                    <td class="py-4">Co-ord Set</td>
+                    <td class="py-4">
+                      <span class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">Boy</span>
+                        <span class="text-slate-400 text-xs">4-5 Years</span>
+                      </span>
+                    </td>
+                    <td class="py-4 text-xs text-slate-500">Yesterday, 11:20 AM</td>
+                    <td class="py-4 pr-4 text-right">
+                      <button onclick="loadSampleProject('boy')" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-200 group-hover:bg-indigo-600 group-hover:border-indigo-500 group-hover:text-white transition-all">
+                        View Results
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- Row 3 (Static past demo) -->
+                  <tr class="group hover:bg-slate-900/30 transition-all">
+                    <td class="py-4 pl-4 flex items-center space-x-3.5">
+                      <div class="w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                        <i data-lucide="shirt" class="text-slate-500 w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <p class="font-semibold text-slate-200">Festive Gold Kurta Pajama</p>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded mt-1 inline-block">Archived</span>
+                      </div>
+                    </td>
+                    <td class="py-4 font-mono text-xs text-slate-400">SKU-9021</td>
+                    <td class="py-4">Kurta Set</td>
+                    <td class="py-4">
+                      <span class="flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">Boy</span>
+                        <span class="text-slate-400 text-xs">2-3 Years</span>
+                      </span>
+                    </td>
+                    <td class="py-4 text-xs text-slate-500">July 12, 4:10 PM</td>
+                    <td class="py-4 pr-4 text-right">
+                      <button class="px-3.5 py-1.5 bg-slate-900 border border-slate-800/80 rounded-xl text-xs font-semibold text-slate-500 cursor-not-allowed">
+                        Archived
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- SCREEN 2: NEW GENERATION -->
+        <section id="view-generate" class="hidden space-y-8 max-w-5xl mx-auto">
+          
+          <!-- Quick select showcase samples block -->
+          <div class="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-violet-950/20 to-slate-900/60 border border-indigo-500/20 shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="flex h-2 w-2 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </span>
+                <h4 class="font-outfit font-semibold text-slate-200">Showcase Demo Mode</h4>
+              </div>
+              <p class="text-xs text-slate-400 mt-1 max-w-xl">Don't have garment images ready? Click a sample below to automatically fill out the forms and load pre-generated high-fidelity apparel photos.</p>
+            </div>
+            <div class="flex flex-wrap gap-3 shrink-0">
+              <button type="button" onclick="loadShowcaseSample('frock')" class="flex items-center space-x-2 px-4 py-2.5 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/30 text-indigo-300 rounded-xl transition-all font-semibold text-xs">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>Sample A: Girls Frock</span>
+              </button>
+              <button type="button" onclick="loadShowcaseSample('boy')" class="flex items-center space-x-2 px-4 py-2.5 bg-violet-900/30 hover:bg-violet-900/50 border border-violet-500/30 text-violet-300 rounded-xl transition-all font-semibold text-xs">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>Sample B: Boys Co-ord Set</span>
+              </button>
+              <button type="button" onclick="loadShowcaseSample('ethnic')" class="flex items-center space-x-2 px-4 py-2.5 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/30 text-emerald-300 rounded-xl transition-all font-semibold text-xs">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>Sample C: Indian Ethnic Set</span>
+              </button>
+            </div>
+          </div>
+
+          <form id="gen-form" onsubmit="triggerAIJob(event)" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left inputs (Form details) -->
+            <div class="lg:col-span-2 space-y-6">
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-5">
+                <h4 class="font-outfit font-semibold text-slate-200 border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <i data-lucide="edit-3" class="w-4 h-4 text-indigo-400"></i> Product Metadata
+                </h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400">Product Name</label>
+                    <input type="text" id="form-name" required placeholder="e.g. Daisy Dreams Summer Frock" 
+                           class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 transition-colors">
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400">SKU / Reference ID</label>
+                    <input type="text" id="form-sku" required placeholder="e.g. SKU-7798" 
+                           class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 transition-colors font-mono text-xs">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400">Category</label>
+                    <select id="form-category" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 transition-colors">
+                      <option value="Frock">Frock / Dress</option>
+                      <option value="Co-ord Set">Co-ord Set</option>
+                      <option value="Kurta Set">Kurta Set</option>
+                      <option value="Shirt & Shorts">Shirt & Shorts</option>
+                      <option value="Romper">Romper</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400">Model Gender</label>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button type="button" id="btn-gender-girl" onclick="selectGender('Girl')" class="py-2.5 rounded-xl border border-indigo-500 bg-indigo-500/10 text-indigo-400 font-semibold text-xs transition-all">Girl</button>
+                      <button type="button" id="btn-gender-boy" onclick="selectGender('Boy')" class="py-2.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-400 font-semibold text-xs transition-all">Boy</button>
+                    </div>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-400">Target Age Group</label>
+                    <select id="form-age" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 transition-colors">
+                      <option value="1-2 Years">1-2 Years</option>
+                      <option value="2-3 Years">2-3 Years</option>
+                      <option value="3-4 Years" selected>3-4 Years</option>
+                      <option value="4-5 Years">4-5 Years</option>
+                      <option value="5-6 Years">5-6 Years</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Drag/drop instructions banner -->
+              <div class="p-4 rounded-xl border border-slate-800/80 bg-slate-900/20 text-xs text-slate-500 leading-relaxed flex gap-3">
+                <i data-lucide="info" class="w-4 h-4 text-indigo-400 shrink-0 mt-0.5"></i>
+                <div>
+                  <span class="text-slate-300 font-medium block mb-0.5">E-commerce Marketplace Best Practices</span>
+                  Upload clear front and back views of the garment laying flat. For best outcomes, use a neutral/white background without hangers or strong overhead shadows. Minimum resolution of 2000 x 2000 px is highly recommended.
+                </div>
+              </div>
+            </div>
+
+            <!-- Right uploads -->
+            <div class="space-y-6">
+              <!-- Upload Box 1: Front Angle -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col items-center">
+                <span class="text-xs font-semibold text-slate-400 self-start mb-3">Front View Garment (Mandatory)</span>
+                <div id="drop-zone-front" class="w-full aspect-square bg-slate-950/60 border-2 border-dashed border-slate-800 hover:border-indigo-500/60 rounded-xl transition-all flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden group">
+                  <input type="file" id="file-front" accept="image/*" onchange="previewUpload(this, 'preview-front', 'placeholder-front')" class="hidden">
+                  <!-- Placeholder -->
+                  <div id="placeholder-front" class="text-center space-y-2 select-none z-10">
+                    <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto group-hover:scale-105 transition-all text-slate-400 group-hover:text-indigo-400">
+                      <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-300">Drag or Click to upload</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">JPG, PNG up to 10MB</p>
+                    </div>
+                  </div>
+                  <!-- Image preview -->
+                  <img id="preview-front" class="hidden absolute inset-0 w-full h-full object-contain p-2" src="" alt="Front Preview">
+                </div>
+              </div>
+
+              <!-- Upload Box 2: Back Angle -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-5 rounded-2xl shadow-xl flex flex-col items-center">
+                <span class="text-xs font-semibold text-slate-400 self-start mb-3">Back View Garment (Mandatory)</span>
+                <div id="drop-zone-back" class="w-full aspect-square bg-slate-950/60 border-2 border-dashed border-slate-800 hover:border-indigo-500/60 rounded-xl transition-all flex flex-col items-center justify-center p-4 cursor-pointer relative overflow-hidden group">
+                  <input type="file" id="file-back" accept="image/*" onchange="previewUpload(this, 'preview-back', 'placeholder-back')" class="hidden">
+                  <!-- Placeholder -->
+                  <div id="placeholder-back" class="text-center space-y-2 select-none z-10">
+                    <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto group-hover:scale-105 transition-all text-slate-400 group-hover:text-indigo-400">
+                      <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-slate-300">Drag or Click to upload</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">JPG, PNG up to 10MB</p>
+                    </div>
+                  </div>
+                  <!-- Image preview -->
+                  <img id="preview-back" class="hidden absolute inset-0 w-full h-full object-contain p-2" src="" alt="Back Preview">
+                </div>
+              </div>
+
+              <!-- Submit button -->
+              <button type="submit" class="w-full py-4 bg-gradient-to-r from-indigo-500 via-violet-600 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl font-bold font-outfit text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98] flex items-center justify-center gap-2.5">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span>Generate Catalog Suite (6 Images)</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+
+        <!-- SCREEN 3: SIMULATED AI PROCESSING LOADER -->
+        <section id="view-loader" class="hidden max-w-3xl mx-auto py-12">
+          <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-8 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-8">
+            
+            <!-- Loading graphic / Scanner animation -->
+            <div class="relative w-48 h-48 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div class="absolute inset-x-0 h-0.5 bg-gradient-to-r from-indigo-500 to-violet-500 scanner-line z-20"></div>
+              <!-- Simulated garment silhouettes being scanned -->
+              <img id="loader-image-source" src="assets/frock_flat_front.jpg" class="w-36 h-36 object-contain opacity-40 transition-all duration-1000 p-2" alt="Scanning">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10"></div>
+            </div>
+
+            <!-- Title & Status Description -->
+            <div class="space-y-2.5">
+              <h3 class="font-outfit font-bold text-2xl text-slate-100">AI Reconstructing Catalog Outfits</h3>
+              <p id="loader-step-text" class="text-indigo-400 font-medium text-sm">Initializing segmentation pipeline...</p>
+              <p class="text-xs text-slate-500 max-w-md mx-auto">This takes about 10-15 seconds. The pipeline segments the garment, analyses textures, maps it onto the child model's skeletal poses, and synthesizes themed backgrounds.</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full space-y-2 max-w-lg">
+              <div class="flex justify-between text-xs text-slate-400 font-semibold font-mono">
+                <span>Progress Tracker</span>
+                <span id="loader-progress-pct">0%</span>
+              </div>
+              <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 p-[1px]">
+                <div id="loader-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 rounded-full transition-all duration-300" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Step logs list -->
+            <div class="w-full max-w-lg bg-slate-950/80 border border-slate-850 rounded-xl p-4 text-left font-mono text-xs text-slate-400 space-y-2 h-44 overflow-y-auto select-none">
+              <div id="log-step-1" class="flex items-center space-x-2 text-slate-500">
+                <i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i>
+                <span>Garment flat lay border extraction...</span>
+              </div>
+              <div id="log-step-2" class="flex items-center space-x-2 text-slate-650">
+                <i data-lucide="circle" class="w-3.5 h-3.5"></i>
+                <span>Garment pattern & texture detailing...</span>
+              </div>
+              <div id="log-step-3" class="flex items-center space-x-2 text-slate-650">
+                <i data-lucide="circle" class="w-3.5 h-3.5"></i>
+                <span>3D fit model skeleton posing...</span>
+              </div>
+              <div id="log-step-4" class="flex items-center space-x-2 text-slate-650">
+                <i data-lucide="circle" class="w-3.5 h-3.5"></i>
+                <span>Synthesizing light-matching backgrounds...</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- SCREEN 4: RESULTS VIEW -->
+        <section id="view-results" class="hidden space-y-8 max-w-7xl mx-auto">
+          
+          <!-- Back button and title -->
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800/80 pb-5">
+            <div class="flex items-center space-x-4">
+              <button onclick="switchView('dashboard')" class="p-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 rounded-xl transition-all">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+              </button>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 id="results-sku" class="font-mono text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">SKU-7798</h3>
+                  <span id="results-title-meta" class="text-xs text-slate-500">Girl • 3-4 Years</span>
+                </div>
+                <h2 id="results-product-name" class="font-outfit font-bold text-2xl text-slate-100 mt-1">Daisy Dreams Summer Frock</h2>
+              </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+              <button onclick="downloadAll()" class="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-xl font-semibold text-xs shadow-md shadow-indigo-500/10 transition-all">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Download All (ZIP)</span>
+              </button>
+              <button onclick="shareProject()" class="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-855 border border-slate-805 text-slate-303 rounded-xl font-semibold text-xs transition-all">
+                <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                <span>Share with Team</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Simulation Banner -->
+          <div id="results-sim-banner" class="hidden p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center justify-between gap-4 shadow-lg shadow-amber-950/20 select-none">
+            <div class="flex items-center gap-3">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 shrink-0"></i>
+              <div>
+                <span class="font-bold">Prototype Simulation Mode:</span>
+                Showing simulated model outputs. Since this dashboard is running client-side without a GPU server, custom uploaded garments cannot be reconstructed in real-time. Your custom uploaded photos are shown below in the "Source Garments" references.
+              </div>
+            </div>
+            <button type="button" onclick="document.getElementById('results-sim-banner').classList.add('hidden')" class="text-amber-400 hover:text-amber-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+          </div>
+
+          <!-- Main results layout with Prompt Settings Sidebar -->
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+            
+            <!-- Grid (6 output images) -->
+            <div class="lg:col-span-3 space-y-6">
+              
+              <!-- Tab Selector -->
+              <div class="flex border-b border-slate-800/60 pb-1 gap-6">
+                <button onclick="filterResults('all')" id="results-tab-all" class="text-sm font-semibold pb-3 text-indigo-400 border-b-2 border-indigo-500">
+                  All Outputs (6)
+                </button>
+                <button onclick="filterResults('white')" id="results-tab-white" class="text-sm font-semibold pb-3 text-slate-400 hover:text-slate-200">
+                  E-Commerce White Bg (2)
+                </button>
+                <button onclick="filterResults('lifestyle')" id="results-tab-lifestyle" class="text-sm font-semibold pb-3 text-slate-400 hover:text-slate-200">
+                  Lifestyle Models (4)
+                </button>
+              </div>
+
+              <!-- Output Images Grid -->
+              <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Image card template -->
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="white">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(0)">
+                    <img id="result-img-0" src="assets/frock_model_white_front.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Front White">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span class="text-xs font-semibold text-white">Front View (White Bg)</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p class="text-xs font-semibold text-slate-200">E-Commerce White Bg</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(0)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="white">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(1)">
+                    <img id="result-img-1" src="assets/frock_model_white_back.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Back White">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span class="text-xs font-semibold text-white">Back View (White Bg)</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p class="text-xs font-semibold text-slate-200">E-Commerce White Bg (Back)</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(1)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="lifestyle">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(2)">
+                    <img id="result-img-2" src="assets/frock_model_lifestyle_garden.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Lifestyle 1">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span id="lbl-pose-0" class="text-xs font-semibold text-white">Front Pose - Outdoor Garden</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p id="title-pose-0" class="text-xs font-semibold text-slate-200">Lifestyle - Outdoor Garden</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(2)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="lifestyle">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(3)">
+                    <img id="result-img-3" src="assets/frock_model_lifestyle_studio.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Lifestyle 2">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span id="lbl-pose-1" class="text-xs font-semibold text-white">Side Pose - Modern Studio</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p id="title-pose-1" class="text-xs font-semibold text-slate-200">Lifestyle - Modern Studio</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(3)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="lifestyle">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(4)">
+                    <img id="result-img-4" src="assets/frock_model_lifestyle_beach.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Lifestyle 3">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span id="lbl-pose-2" class="text-xs font-semibold text-white">Walking Pose - Beach Waves</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p id="title-pose-2" class="text-xs font-semibold text-slate-200">Lifestyle - Beach Play</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(4)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+
+                <div class="group bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col" data-type="lifestyle">
+                  <div class="aspect-[3/4] bg-slate-950 relative overflow-hidden group cursor-pointer" onclick="openZoomModal(5)">
+                    <img id="result-img-5" src="assets/frock_model_lifestyle_playroom.jpg" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Model Lifestyle 4">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                      <span id="lbl-pose-3" class="text-xs font-semibold text-white">Angled Pose - Playroom Toys</span>
+                      <div class="flex gap-2">
+                        <span class="p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-850 border border-slate-700/60 transition-all"><i data-lucide="zoom-in" class="w-4 h-4"></i></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="p-4 border-t border-slate-800/60 flex items-center justify-between">
+                    <div>
+                      <p id="title-pose-3" class="text-xs font-semibold text-slate-200">Lifestyle - Inside Playroom</p>
+                      <p class="text-[10px] text-slate-500 mt-0.5">Resolution: 1800 x 2000 px</p>
+                    </div>
+                    <button onclick="downloadSingle(5)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-transparent hover:border-slate-700"><i data-lucide="download" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Settings Sidebar -->
+            <div class="space-y-6">
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-5">
+                <h4 class="font-outfit font-semibold text-slate-200 border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> Prompt & Settings
+                </h4>
+                
+                <div class="space-y-2">
+                  <label class="text-xs font-semibold text-slate-400">Global AI Generation Theme</label>
+                  <select id="setting-theme" onchange="applyLifestyleFilters(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 text-slate-200 transition-colors">
+                    <option value="default">Standard Themed Backgrounds</option>
+                    <option value="warm">Warm Golden Hour (Warm hues)</option>
+                    <option value="cool">High-Fashion Editorial (Vibrant cooler light)</option>
+                    <option value="retro">Cozy Vintage Film (Analog filters)</option>
+                  </select>
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-xs font-semibold text-slate-400">AI Prompt Template</label>
+                  <textarea id="prompt-textbox" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs focus:outline-none focus:border-indigo-500 text-slate-300 font-sans leading-normal resize-none font-mono">Generate a realistic 3-4-year-old girl wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.</textarea>
+                </div>
+
+                <div class="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1">
+                  <div class="flex justify-between items-center text-[10px] text-slate-400">
+                    <span>Target Height</span>
+                    <span class="font-mono text-slate-200">105 cm</span>
+                  </div>
+                  <div class="flex justify-between items-center text-[10px] text-slate-400">
+                    <span>Ethnic Fit Match</span>
+                    <span class="font-semibold text-emerald-400">Auto (98%)</span>
+                  </div>
+                  <div class="flex justify-between items-center text-[10px] text-slate-400">
+                    <span>Garment Mask Detail</span>
+                    <span class="font-mono text-slate-200">High-Precision</span>
+                  </div>
+                </div>
+
+                <button onclick="triggerQuickRegen(event)" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                  <span>Regenerate Suite</span>
+                </button>
+              </div>
+
+              <!-- Input Reference Preview -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-5 rounded-2xl shadow-xl">
+                <h4 class="font-outfit font-semibold text-slate-200 border-b border-slate-800 pb-3 mb-4 text-xs tracking-wider uppercase">
+                  Source Garments
+                </h4>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="bg-slate-950 border border-slate-800 rounded-lg p-1">
+                    <img id="results-ref-front" src="assets/frock_flat_front.jpg" class="w-full aspect-square object-contain" alt="Ref Front">
+                    <span class="block text-[9px] text-center text-slate-500 font-semibold mt-1">Ref Front</span>
+                  </div>
+                  <div class="bg-slate-950 border border-slate-800 rounded-lg p-1">
+                    <img id="results-ref-back" src="assets/frock_flat_back.jpg" class="w-full aspect-square object-contain" alt="Ref Back">
+                    <span class="block text-[9px] text-center text-slate-500 font-semibold mt-1">Ref Back</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+
+        <!-- SCREEN 5: ADMIN PANEL -->
+        <section id="view-admin" class="hidden space-y-8 max-w-7xl mx-auto">
+          
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left panel: Settings config & System Health -->
+            <div class="lg:col-span-1 space-y-6">
+              <!-- System Status -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-5">
+                <h4 class="font-outfit font-semibold text-slate-200 border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-indigo-400"></i> Pipeline Health
+                </h4>
+                
+                <div class="space-y-3 text-xs">
+                  <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Segmentation Node</span>
+                    <span class="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md font-semibold text-[10px]">Healthy</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Stable Diffusion API Node</span>
+                    <span class="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md font-semibold text-[10px]">Healthy</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Cloud Storage (R2 Bucket)</span>
+                    <span class="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md font-semibold text-[10px]">Online</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Active Queue Workers</span>
+                    <span class="font-mono text-slate-200">8 / 8 Online</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Config Variables -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-5">
+                <h4 class="font-outfit font-semibold text-slate-200 border-b border-slate-800 pb-3 flex items-center gap-2">
+                  <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> System Configuration
+                </h4>
+                
+                <div class="space-y-4">
+                  <div class="space-y-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Default Model</label>
+                    <select class="w-full bg-slate-950 border border-slate-855 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-202">
+                      <option>Flux.1 Dev (Fashion Custom-Lora)</option>
+                      <option>SDXL v1.0 E-commerce (Refined)</option>
+                      <option>Midjourney v6 API Gateway</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Output Resolution</label>
+                    <select class="w-full bg-slate-950 border border-slate-855 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-202">
+                      <option>1800 x 2000 px (Recommended)</option>
+                      <option>2000 x 2000 px (1:1 Square)</option>
+                      <option>1440 x 1920 px (3:4 Ratio)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Credits Cost per Catalog</label>
+                    <input type="number" value="6" class="w-full bg-slate-950 border border-slate-855 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-202">
+                  </div>
+                  <div class="space-y-1.5 border-t border-slate-800/80 pt-4">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> Live GPU API Key (Fal.ai)
+                    </label>
+                    <input type="password" id="input-fal-key" placeholder="Enter Fal.ai Key (fal_key:...)" onchange="saveFalKey(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-200 font-mono">
+                    <p class="text-[9px] text-slate-500">Provide your Fal.ai API key to enable live GPU generation for custom uploads. Your key is saved locally in your browser storage.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right panel: User list & Console logs -->
+            <div class="lg:col-span-2 space-y-6">
+              
+              <!-- User Management Table -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl">
+                <h4 class="font-outfit font-semibold text-slate-200 mb-5 flex items-center gap-2">
+                  <i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> Team Members & Credit Limits
+                </h4>
+                <div class="overflow-x-auto text-xs">
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-800/80 text-slate-500 font-semibold uppercase tracking-wider">
+                        <th class="pb-3 pl-2">User Details</th>
+                        <th class="pb-3">Role</th>
+                        <th class="pb-3">Generations</th>
+                        <th class="pb-3">Credit Limit</th>
+                        <th class="pb-3 pr-2 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/40 text-slate-300">
+                      <tr>
+                        <td class="py-3 pl-2 flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded bg-indigo-600 text-white font-bold flex items-center justify-center text-[10px]">MS</div>
+                          <span class="font-semibold text-slate-200">Mohit Saini (You)</span>
+                        </td>
+                        <td class="py-3">Store Manager</td>
+                        <td class="py-3 font-mono">1,248 images</td>
+                        <td class="py-3 font-mono">84 / 100</td>
+                        <td class="py-3 pr-2 text-right"><span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold">Active</span></td>
+                      </tr>
+                      <tr>
+                        <td class="py-3 pl-2 flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded bg-violet-600 text-white font-bold flex items-center justify-center text-[10px]">RK</div>
+                          <span class="font-semibold text-slate-200">Rohit Kumar</span>
+                        </td>
+                        <td class="py-3">Designer</td>
+                        <td class="py-3 font-mono">420 images</td>
+                        <td class="py-3 font-mono">250 / 300</td>
+                        <td class="py-3 pr-2 text-right"><span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold">Active</span></td>
+                      </tr>
+                      <tr>
+                        <td class="py-3 pl-2 flex items-center space-x-2.5">
+                          <div class="w-7 h-7 rounded bg-slate-700 text-white font-bold flex items-center justify-center text-[10px]">AS</div>
+                          <span class="font-semibold text-slate-200">Ananya Sharma</span>
+                        </td>
+                        <td class="py-3">Content Lead</td>
+                        <td class="py-3 font-mono">892 images</td>
+                        <td class="py-3 font-mono">5 / 150</td>
+                        <td class="py-3 pr-2 text-right"><span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold">Active</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Live system logs console -->
+              <div class="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                  <h4 class="font-outfit font-semibold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-4 h-4 text-indigo-400"></i> Processing Logs Console
+                  </h4>
+                  <span class="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-mono uppercase tracking-wider font-bold">Stream: Connected</span>
+                </div>
+                <!-- Log display box -->
+                <div id="admin-logs-box" class="w-full bg-slate-950 font-mono text-[10px] text-slate-400 p-4 rounded-xl h-56 overflow-y-auto space-y-1.5 border border-slate-850 select-none">
+                  <div class="text-slate-500">[INFO 18:35:01] System boot successful. Running core scheduler v2.4.1</div>
+                  <div class="text-slate-500">[INFO 18:35:05] Connected to Redis queue server at 127.0.0.1:6379</div>
+                  <div class="text-slate-500">[INFO 18:35:06] 8 celery workers listening on queue: image_segmentation</div>
+                  <div class="text-slate-500">[INFO 18:35:06] 4 celery workers listening on queue: background_synthesis</div>
+                  <div class="text-slate-500">[SUCCESS 18:35:10] Pre-warmed SDXL model lora weights: KidsFashionStyle-v2</div>
+                  <div class="text-slate-400">[API 18:35:34] GET /api/v1/projects 200 OK (24ms) from Mohit Saini</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- LIGHTBOX / ZOOM DIALOG MODAL -->
+  <div id="zoom-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="absolute inset-0 cursor-pointer" onclick="closeZoomModal()"></div>
+    
+    <div class="relative bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col md:flex-row z-10">
+      <button onclick="closeZoomModal()" class="absolute top-4 right-4 p-2 bg-slate-950/80 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-all hover:scale-105 z-20">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Zoom Image panel -->
+      <div class="flex-1 bg-slate-950 flex items-center justify-center p-6 relative aspect-[3/4] md:aspect-auto md:h-[600px]">
+        <img id="zoom-modal-img" class="max-h-full max-w-full object-contain rounded-lg" src="" alt="Zoom Image">
+      </div>
+
+      <!-- Detail Panel (Right) -->
+      <div class="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-800 p-6 flex flex-col justify-between space-y-6 shrink-0 bg-slate-900/60">
+        <div class="space-y-4">
+          <div>
+            <span class="text-[10px] text-indigo-400 font-mono font-bold bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded" id="zoom-modal-label">Front view</span>
+            <h4 class="font-outfit font-bold text-slate-100 text-lg mt-2" id="zoom-modal-title">Daisy Dreams Summer Frock</h4>
+            <p class="text-xs text-slate-500 mt-1" id="zoom-modal-meta">Girl • 3-4 Years • SKU-7798</p>
+          </div>
+
+          <div class="h-px bg-slate-800/80"></div>
+
+          <div class="space-y-2">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Garment Matching</span>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">Embroidery & Patches</span>
+              <span class="font-bold text-emerald-400">97% Match</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">Color Spectrum Delta</span>
+              <span class="font-bold text-emerald-400">E &lt; 1.2 (Exact)</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">Fit Realism</span>
+              <span class="font-bold text-slate-300">High-Fidelity</span>
+            </div>
+          </div>
+
+          <div class="h-px bg-slate-800/80"></div>
+
+          <div class="space-y-2.5">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">E-commerce Compatibility</span>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="px-2 py-1 bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold rounded">Amazon Ready</span>
+              <span class="px-2 py-1 bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold rounded">FirstCry Ready</span>
+              <span class="px-2 py-1 bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold rounded">Myntra Ready</span>
+              <span class="px-2 py-1 bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold rounded">Flipkart Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <button id="zoom-modal-download-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-500/10">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Download High-Res Asset</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENT-SIDE SCRIPTS -->
+  <script>
+    // System State Variables
+    let currentView = 'dashboard';
+    let creditsRemaining = 84;
+    let productsCount = 208;
+    let imagesCount = 1248;
+    let currentSample = 'frock'; // 'frock' or 'boy'
+    let activeGenderSelection = 'Girl'; // Default in new gen form
+    let currentResultsFilter = 'all';
+    let customFrontSrc = '';
+    let customBackSrc = '';
+
+    // Mock Image mappings for showcase testing
+    const frockImages = [
+      'assets/frock_model_white_front.jpg',
+      'assets/frock_model_white_back.jpg',
+      'assets/frock_model_lifestyle_garden.jpg',
+      'assets/frock_model_lifestyle_studio.jpg',
+      'assets/frock_model_lifestyle_beach.jpg',
+      'assets/frock_model_lifestyle_playroom.jpg'
+    ];
+
+    const boyImages = [
+      'assets/boy_model_white_front.jpg',
+      'assets/boy_model_white_back.jpg',
+      'assets/boy_model_lifestyle_park.jpg',
+      'assets/boy_model_lifestyle_studio.jpg',
+      'assets/boy_model_lifestyle_beach.jpg',
+      'assets/boy_model_lifestyle_playroom.jpg'
+    ];
+
+    const ethnicImages = [
+      'assets/exact_model_white_front.jpg',
+      'assets/exact_model_white_back.jpg',
+      'assets/exact_model_lifestyle_front.jpg',
+      'assets/exact_model_lifestyle_left.jpg',
+      'assets/exact_model_lifestyle_right.jpg',
+      'assets/exact_model_lifestyle_back.jpg'
+    ];
+
+    // Initialize Lucide Icons and Load API Key
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      startLiveLogsGenerator();
+      
+      const savedKey = localStorage.getItem('fal_api_key') || '';
+      const keyInput = document.getElementById('input-fal-key');
+      if (keyInput) {
+        keyInput.value = savedKey;
+      }
+    });
+
+    function saveFalKey(value) {
+      localStorage.setItem('fal_api_key', value.trim());
+      console.log("Fal.ai API key updated.");
+    }
+
+    // Simple router logic
+    function switchView(viewName) {
+      // Hide all main views
+      document.getElementById('view-dashboard').classList.add('hidden');
+      document.getElementById('view-generate').classList.add('hidden');
+      document.getElementById('view-loader').classList.add('hidden');
+      document.getElementById('view-results').classList.add('hidden');
+      document.getElementById('view-admin').classList.add('hidden');
+
+      // Remove navigation styling from all
+      document.getElementById('nav-dashboard').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/50";
+      document.getElementById('nav-generate').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/50";
+      document.getElementById('nav-admin').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-900/50";
+
+      // Show selected view
+      document.getElementById('view-' + viewName).classList.remove('hidden');
+      
+      // Update Navigation highlighting
+      if (viewName === 'dashboard') {
+        document.getElementById('nav-dashboard').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-slate-800/40 border border-slate-700/30 text-indigo-400";
+        document.getElementById('page-title').innerText = "Dashboard Home";
+      } else if (viewName === 'generate') {
+        document.getElementById('nav-generate').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-slate-800/40 border border-slate-700/30 text-indigo-400";
+        document.getElementById('page-title').innerText = "New Catalog Generation";
+      } else if (viewName === 'admin') {
+        document.getElementById('nav-admin').className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all bg-slate-800/40 border border-slate-700/30 text-indigo-400";
+        document.getElementById('page-title').innerText = "Admin Console";
+      } else if (viewName === 'results') {
+        document.getElementById('page-title').innerText = "Generated Catalog Suite";
+      } else if (viewName === 'loader') {
+        document.getElementById('page-title').innerText = "Generating Catalog...";
+      }
+
+      currentView = viewName;
+    }
+
+    // Gender selection switch inside Form
+    function selectGender(gender) {
+      activeGenderSelection = gender;
+      const girlBtn = document.getElementById('btn-gender-girl');
+      const boyBtn = document.getElementById('btn-gender-boy');
+      
+      if (gender === 'Girl') {
+        girlBtn.className = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-500/10 text-indigo-400 font-semibold text-xs transition-all";
+        boyBtn.className = "py-2.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-400 font-semibold text-xs transition-all";
+        document.getElementById('form-category').value = "Frock";
+      } else {
+        boyBtn.className = "py-2.5 rounded-xl border border-indigo-500 bg-indigo-500/10 text-indigo-400 font-semibold text-xs transition-all";
+        girlBtn.className = "py-2.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950 text-slate-400 font-semibold text-xs transition-all";
+        document.getElementById('form-category').value = "Co-ord Set";
+      }
+    }
+
+    // Load pre-built showcase details into Form fields
+    function loadShowcaseSample(sampleType) {
+      currentSample = sampleType;
+      
+      const formName = document.getElementById('form-name');
+      const formSku = document.getElementById('form-sku');
+      const formCat = document.getElementById('form-category');
+      const formAge = document.getElementById('form-age');
+      
+      const previewFront = document.getElementById('preview-front');
+      const previewBack = document.getElementById('preview-back');
+      const placeholderFront = document.getElementById('placeholder-front');
+      const placeholderBack = document.getElementById('placeholder-back');
+
+      if (sampleType === 'frock') {
+        formName.value = "Daisy Dreams Summer Frock";
+        formSku.value = "SKU-7798";
+        formCat.value = "Frock";
+        selectGender('Girl');
+        formAge.value = "3-4 Years";
+        
+        previewFront.src = "assets/frock_flat_front.jpg";
+        previewBack.src = "assets/frock_flat_back.jpg";
+      } else if (sampleType === 'boy') {
+        formName.value = "Linen Sunshine Co-ord Set";
+        formSku.value = "SKU-2091";
+        formCat.value = "Co-ord Set";
+        selectGender('Boy');
+        formAge.value = "4-5 Years";
+        
+        previewFront.src = "assets/boy_flat_front.jpg";
+        previewBack.src = "assets/boy_flat_back.jpg";
+      } else if (sampleType === 'ethnic') {
+        formName.value = "Bandhani Ethnic Kurta Gharara Set";
+        formSku.value = "SKU-8821";
+        formCat.value = "Kurta Set";
+        selectGender('Girl');
+        formAge.value = "3-4 Years";
+        
+        previewFront.src = "assets/exact_flat_front.jpg";
+        previewBack.src = "assets/exact_flat_back.jpg";
+      }
+      
+      previewFront.classList.remove('hidden');
+      previewBack.classList.remove('hidden');
+      placeholderFront.classList.add('hidden');
+      placeholderBack.classList.add('hidden');
+    }
+
+    // File selection preview display
+    function previewUpload(input, imgElementId, placeholderId) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = document.getElementById(imgElementId);
+          img.src = e.target.result;
+          img.classList.remove('hidden');
+          document.getElementById(placeholderId).classList.add('hidden');
+          
+          if (imgElementId === 'preview-front') {
+            customFrontSrc = e.target.result;
+          } else {
+            customBackSrc = e.target.result;
+          }
+        };
+        reader.readAsDataURL(input.files[0]);
+        currentSample = 'custom';
+      }
+    }
+
+    // Event listeners to triggers upload click when dropping boxes are clicked
+    document.getElementById('drop-zone-front').addEventListener('click', () => {
+      document.getElementById('file-front').click();
+    });
+    document.getElementById('drop-zone-back').addEventListener('click', () => {
+      document.getElementById('file-back').click();
+    });
+
+    // Convert base64 dataURL back into a File object for HTTP uploading
+    function dataURLtoFile(dataurl, filename) {
+      var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+          bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while(n--){
+          u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, {type:mime});
+    }
+
+    // Upload base64 garment to Fal.ai CDN Storage
+    async function uploadToFal(file, apiKey) {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('https://queue.fal.run/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Key ' + apiKey
+        },
+        body: formData
+      });
+      if (!response.ok) {
+        throw new Error('Fal.ai upload endpoint failed: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.url;
+    }
+
+    // Generate output image using Flux Schnell on Fal.ai
+    async function generateImageFal(prompt, apiKey) {
+      const response = await fetch('https://queue.fal.run/fal-ai/flux/schnell', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Key ' + apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          image_size: "portrait_3_4",
+          sync_mode: true
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Flux GPU worker failed: ' + response.statusText);
+      }
+      const result = await response.json();
+      return result.images[0].url;
+    }
+
+    // Run Real GPU pipeline when API key is provided
+    async function runLiveFalAIPipeline(apiKey) {
+      const progressBar = document.getElementById('loader-progress-bar');
+      const progressPct = document.getElementById('loader-progress-pct');
+      const stepText = document.getElementById('loader-step-text');
+      
+      const step1 = document.getElementById('log-step-1');
+      const step2 = document.getElementById('log-step-2');
+      const step3 = document.getElementById('log-step-3');
+      const step4 = document.getElementById('log-step-4');
+
+      progressBar.style.width = '0%';
+      progressPct.innerText = '0%';
+      stepText.innerText = "Connecting to GPU cloud worker...";
+      
+      step1.className = "flex items-center space-x-2 text-indigo-400";
+      step1.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Uploading garment templates...</span>`;
+      step2.className = "flex items-center space-x-2 text-slate-700";
+      step2.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>Requesting Flux GPU generation queue...</span>`;
+      step3.className = "flex items-center space-x-2 text-slate-700";
+      step3.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>Waiting for model poses synthesis...</span>`;
+      step4.className = "flex items-center space-x-2 text-slate-700";
+      step4.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>Compiling final e-commerce catalog...</span>`;
+      lucide.createIcons();
+
+      try {
+        progressBar.style.width = '15%';
+        progressPct.innerText = '15%';
+        stepText.innerText = "Uploading clothing templates to Fal.ai CDN...";
+        
+        let frontFile = null;
+        if (customFrontSrc) {
+          frontFile = dataURLtoFile(customFrontSrc, 'front_garment.png');
+        } else {
+          throw new Error("No custom garment image uploaded! Please upload a front photo in the form first.");
+        }
+        
+        let backFile = null;
+        if (customBackSrc) {
+          backFile = dataURLtoFile(customBackSrc, 'back_garment.png');
+        } else {
+          backFile = frontFile; 
+        }
+        
+        const [frontUrl, backUrl] = await Promise.all([
+          uploadToFal(frontFile, apiKey),
+          uploadToFal(backFile, apiKey)
+        ]);
+
+        progressBar.style.width = '40%';
+        progressPct.innerText = '40%';
+        stepText.innerText = "Processing garments in model GPU queue...";
+        
+        step1.className = "flex items-center space-x-2 text-emerald-400";
+        step1.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Garments uploaded successfully to CDN!</span>`;
+        
+        step2.className = "flex items-center space-x-2 text-indigo-400";
+        step2.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Synthesizing model poses with Flux Schnell...</span>`;
+        lucide.createIcons();
+
+        const pName = document.getElementById('form-name').value || "Custom Outfit";
+        const pSku = document.getElementById('form-sku').value || "SKU-Custom";
+        const pCat = document.getElementById('form-category').value;
+        const pAge = document.getElementById('form-age').value;
+        const pGender = activeGenderSelection;
+
+        const prompts = [
+          `A high-resolution e-commerce catalog studio photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model smiling, standing, front view, wearing this exact garment: ${frontUrl}. Solid clean white background. Professional studio lighting, hyperrealistic, high details.`,
+          `A high-resolution e-commerce catalog studio photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model from the back, standing, back view, wearing this exact garment: ${backUrl}. Solid clean white background. Professional studio lighting, hyperrealistic, high details.`,
+          `A premium lifestyle catalog photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model smiling, standing, front angle view, wearing this exact garment: ${frontUrl}. The background is a beautiful decorative wall covered with marigold flowers and ethnic Indian floral decorations. Warm festive lighting, soft focus, hyperrealistic, high details.`,
+          `A premium lifestyle catalog photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model smiling, standing, left side angle view, wearing this exact garment: ${frontUrl}. The background is a beautiful decorative wall covered with marigold flowers and ethnic Indian floral decorations. Warm festive lighting, soft focus, hyperrealistic, high details.`,
+          `A premium lifestyle catalog photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model smiling, standing, right side angle view, wearing this exact garment: ${frontUrl}. The background is a beautiful decorative wall covered with marigold flowers and ethnic Indian floral decorations. Warm festive lighting, soft focus, hyperrealistic, high details.`,
+          `A premium lifestyle catalog photo of a beautiful young ${pAge} ${pGender.toLowerCase()} kid model from the back, showing the back side angle, wearing this exact garment: ${backUrl}. The background is a beautiful decorative wall covered with marigold flowers and ethnic Indian floral decorations. Warm festive lighting, soft focus, hyperrealistic, high details.`
+        ];
+
+        progressBar.style.width = '60%';
+        progressPct.innerText = '60%';
+        stepText.innerText = "Generating 6 catalog poses in parallel...";
+        
+        step2.className = "flex items-center space-x-2 text-emerald-400";
+        step2.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>GPU Generation request dispatched.</span>`;
+        
+        step3.className = "flex items-center space-x-2 text-indigo-400";
+        step3.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Waiting for GPU worker execution...</span>`;
+        lucide.createIcons();
+
+        const imageUrls = await Promise.all(prompts.map(p => generateImageFal(p, apiKey)));
+
+        progressBar.style.width = '90%';
+        progressPct.innerText = '90%';
+        stepText.innerText = "Structuring catalog package...";
+        
+        step3.className = "flex items-center space-x-2 text-emerald-400";
+        step3.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>All 6 model poses generated by GPU!</span>`;
+        
+        step4.className = "flex items-center space-x-2 text-indigo-400";
+        step4.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Structuring outputs and resolving sizing...</span>`;
+        lucide.createIcons();
+
+        customFrontSrc = frontUrl;
+        customBackSrc = backUrl;
+        
+        window.liveGeneratedImages = imageUrls;
+
+        progressBar.style.width = '100%';
+        progressPct.innerText = '100%';
+        stepText.innerText = "Catalog generation complete!";
+        
+        step4.className = "flex items-center space-x-2 text-emerald-400";
+        step4.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>All images saved and ready!</span>`;
+        lucide.createIcons();
+
+        setTimeout(() => {
+          finalizeLiveAISuite();
+        }, 800);
+
+      } catch (err) {
+        alert("Fal.ai Generation Error: " + err.message);
+        switchView('generate');
+      }
+    }
+
+    function finalizeLiveAISuite() {
+      creditsRemaining -= 6;
+      productsCount += 1;
+      imagesCount += 6;
+      
+      document.getElementById('credits-badge').innerText = creditsRemaining;
+      document.getElementById('credits-bar').style.width = creditsRemaining + '%';
+      document.getElementById('donut-percentage').innerText = creditsRemaining + '%';
+      
+      document.getElementById('stat-total-images').innerText = imagesCount.toLocaleString();
+      document.getElementById('stat-total-products').innerText = productsCount;
+      
+      const pName = document.getElementById('form-name').value || "Custom Outfit";
+      const pSku = document.getElementById('form-sku').value || "SKU-Custom";
+      const pCat = document.getElementById('form-category').value;
+      const pAge = document.getElementById('form-age').value;
+      const pGender = activeGenderSelection;
+
+      document.getElementById('results-sku').innerText = pSku;
+      document.getElementById('results-product-name').innerText = pName;
+      document.getElementById('results-title-meta').innerText = `${pGender} • ${pAge} • ${pCat}`;
+      
+      const refFrontImg = document.getElementById('results-ref-front');
+      const refBackImg = document.getElementById('results-ref-back');
+      const simBanner = document.getElementById('results-sim-banner');
+      
+      simBanner.classList.add('hidden');
+      
+      refFrontImg.src = customFrontSrc;
+      refBackImg.src = customBackSrc;
+      
+      const imagesSrc = window.liveGeneratedImages;
+      for (let i = 0; i < 6; i++) {
+        document.getElementById('result-img-' + i).src = imagesSrc[i];
+      }
+
+      document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
+      document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
+      document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
+      document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
+      document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
+      document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
+      document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
+      document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
+      document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
+      document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
+      document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
+      document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
+
+      document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} ${pGender.toLowerCase()} wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+
+      const listBody = document.getElementById('projects-list-body');
+      const newRowHTML = `
+        <tr class="group hover:bg-slate-900/30 transition-all">
+          <td class="py-4 pl-4 flex items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-lg bg-slate-850 border border-slate-800 overflow-hidden shrink-0">
+              <img src="${customFrontSrc}" class="w-full h-full object-cover" alt="Thumb">
+            </div>
+            <div>
+              <p class="font-semibold text-slate-200">${pName}</p>
+              <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded mt-1 inline-block">Real GPU Output</span>
+            </div>
+          </td>
+          <td class="py-4 font-mono text-xs text-slate-400">${pSku}</td>
+          <td class="py-4">${pCat}</td>
+          <td class="py-4">
+            <span class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded bg-${(pGender === 'Girl') ? 'pink' : 'blue'}-500/10 text-${(pGender === 'Girl') ? 'pink' : 'blue'}-400 border border-${(pGender === 'Girl') ? 'pink' : 'blue'}-500/20 text-[10px] font-bold">${pGender}</span>
+              <span class="text-slate-400 text-xs">${pAge}</span>
+            </span>
+          </td>
+          <td class="py-4 text-xs text-slate-500">Just Now</td>
+          <td class="py-4 pr-4 text-right">
+            <button class="px-3.5 py-1.5 bg-emerald-600 border border-emerald-500 rounded-xl text-xs font-semibold text-white cursor-default">
+              Live API
+            </button>
+          </td>
+        </tr>
+      `;
+      listBody.insertAdjacentHTML('afterbegin', newRowHTML);
+      switchView('results');
+    }
+
+    // Submit generation trigger
+    function triggerAIJob(event) {
+      event.preventDefault();
+      
+      const falKey = localStorage.getItem('fal_api_key') || '';
+      
+      if (currentSample === 'custom' && falKey) {
+        switchView('loader');
+        runLiveFalAIPipeline(falKey);
+        return;
+      }
+      
+      // Setup Loader Details
+      const loaderImage = document.getElementById('loader-image-source');
+      if (currentSample === 'boy') {
+        loaderImage.src = "assets/boy_flat_front.jpg";
+      } else if (currentSample === 'frock') {
+        loaderImage.src = "assets/frock_flat_front.jpg";
+      } else if (currentSample === 'ethnic') {
+        loaderImage.src = "assets/exact_flat_front.jpg";
+      } else {
+        loaderImage.src = customFrontSrc || "assets/frock_flat_front.jpg";
+      }
+      
+      switchView('loader');
+      runAIStepperSimulation();
+    }
+
+    // Step logger and progress animation
+    function runAIStepperSimulation() {
+      let progress = 0;
+      const progressBar = document.getElementById('loader-progress-bar');
+      const progressPct = document.getElementById('loader-progress-pct');
+      const stepText = document.getElementById('loader-step-text');
+      
+      // Log rows
+      const step1 = document.getElementById('log-step-1');
+      const step2 = document.getElementById('log-step-2');
+      const step3 = document.getElementById('log-step-3');
+      const step4 = document.getElementById('log-step-4');
+      
+      // Reset logs classes
+      step1.className = "flex items-center space-x-2 text-indigo-400";
+      step1.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Garment flat lay border extraction...</span>`;
+      step2.className = "flex items-center space-x-2 text-slate-700";
+      step2.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>Garment pattern & texture detailing...</span>`;
+      step3.className = "flex items-center space-x-2 text-slate-700";
+      step3.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>3D fit model skeleton posing...</span>`;
+      step4.className = "flex items-center space-x-2 text-slate-700";
+      step4.innerHTML = `<i data-lucide="circle" class="w-3.5 h-3.5"></i><span>Synthesizing light-matching backgrounds...</span>`;
+      lucide.createIcons();
+
+      const interval = setInterval(() => {
+        progress += 2;
+        progressBar.style.width = progress + '%';
+        progressPct.innerText = progress + '%';
+        
+        // Progress stage updates
+        if (progress === 20) {
+          stepText.innerText = "Extracting textures and colors...";
+          step1.className = "flex items-center space-x-2 text-emerald-400";
+          step1.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Garment borders segmented successfully [820ms]</span>`;
+          
+          step2.className = "flex items-center space-x-2 text-indigo-400";
+          step2.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Extracting fabric weave structure...</span>`;
+          lucide.createIcons();
+        } else if (progress === 50) {
+          stepText.innerText = "Fitting garment to 3D skeletal mesh...";
+          step2.className = "flex items-center space-x-2 text-emerald-400";
+          step2.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Patterns & fabric detail analyzed [1.2s]</span>`;
+          
+          step3.className = "flex items-center space-x-2 text-indigo-400";
+          step3.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Mapping folds onto girl/boy posture...</span>`;
+          lucide.createIcons();
+        } else if (progress === 76) {
+          stepText.innerText = "Synthesizing white & lifestyle backgrounds...";
+          step3.className = "flex items-center space-x-2 text-emerald-400";
+          step3.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Outfit mapped onto target posture [1.6s]</span>`;
+          
+          step4.className = "flex items-center space-x-2 text-indigo-400";
+          step4.innerHTML = `<i data-lucide="circle-dashed" class="w-3.5 h-3.5 animate-spin"></i><span>Rendering 4 lifestyle variations...</span>`;
+          lucide.createIcons();
+        }
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          stepText.innerText = "Catalog compilation done!";
+          step4.className = "flex items-center space-x-2 text-emerald-400";
+          step4.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Background views generated successfully [2.1s]</span>`;
+          lucide.createIcons();
+          
+          setTimeout(() => {
+            finalizeAISuite();
+          }, 800);
+        }
+      }, 250);
+    }
+
+    // Complete Job and Transition to Results Page
+    function finalizeAISuite() {
+      // Deduct credits and update numbers
+      creditsRemaining -= 6;
+      productsCount += 1;
+      imagesCount += 6;
+      
+      // Update global badges
+      document.getElementById('credits-badge').innerText = creditsRemaining;
+      document.getElementById('credits-bar').style.width = creditsRemaining + '%';
+      document.getElementById('donut-percentage').innerText = creditsRemaining + '%';
+      
+      document.getElementById('stat-total-images').innerText = imagesCount.toLocaleString();
+      document.getElementById('stat-total-products').innerText = productsCount;
+      
+      // Populate results page fields
+      const pName = document.getElementById('form-name').value || "Daisy Dreams Summer Frock";
+      const pSku = document.getElementById('form-sku').value || "SKU-7798";
+      const pCat = document.getElementById('form-category').value;
+      const pAge = document.getElementById('form-age').value;
+      const pGender = activeGenderSelection;
+
+      document.getElementById('results-sku').innerText = pSku;
+      document.getElementById('results-product-name').innerText = pName;
+      document.getElementById('results-title-meta').innerText = `${pGender} • ${pAge} • ${pCat}`;
+      
+      // Source reference images update
+      const refFrontImg = document.getElementById('results-ref-front');
+      const refBackImg = document.getElementById('results-ref-back');
+      const simBanner = document.getElementById('results-sim-banner');
+      
+      // Set results images depending on Frock vs Boy vs Ethnic vs Custom Upload matching selected gender
+      let imagesSrc;
+      if (currentSample === 'boy') {
+        imagesSrc = boyImages;
+        simBanner.classList.add('hidden');
+      } else if (currentSample === 'frock') {
+        imagesSrc = frockImages;
+        simBanner.classList.add('hidden');
+      } else if (currentSample === 'ethnic') {
+        imagesSrc = ethnicImages;
+        simBanner.classList.add('hidden');
+      } else {
+        // Custom upload
+        imagesSrc = (pGender === 'Boy') ? boyImages : frockImages;
+        simBanner.classList.remove('hidden');
+      }
+      
+      if (currentSample === 'boy') {
+        refFrontImg.src = "assets/boy_flat_front.jpg";
+        refBackImg.src = "assets/boy_flat_back.jpg";
+        
+        // Update tags
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - Sunny Park";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Sunny Park";
+        document.getElementById('lbl-pose-1').innerText = "Side Pose - Studio Blocks";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Studio Block";
+        document.getElementById('lbl-pose-2').innerText = "Walking Pose - Studio Block";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Walk Studio";
+        document.getElementById('lbl-pose-3').innerText = "Playful Pose - Playroom Park";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Play Park";
+
+        // Prompt textbox
+        document.getElementById('prompt-textbox').value = `Generate a realistic 4-5-year-old boy wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+      } else if (currentSample === 'frock') {
+        refFrontImg.src = "assets/frock_flat_front.jpg";
+        refBackImg.src = "assets/frock_flat_back.jpg";
+        
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
+        document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
+        document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
+        document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+
+        document.getElementById('prompt-textbox').value = `Generate a realistic 3-4-year-old girl wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+      } else if (currentSample === 'ethnic') {
+        refFrontImg.src = "assets/exact_flat_front.jpg";
+        refBackImg.src = "assets/exact_flat_back.jpg";
+        
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
+        document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
+        document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
+        document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
+        document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
+        document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
+        document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
+        document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
+        document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
+        document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
+
+        document.getElementById('prompt-textbox').value = `Generate a realistic 3-4-year-old girl wearing the provided ethnic outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+      } else {
+        // Custom Upload
+        refFrontImg.src = customFrontSrc || "assets/frock_flat_front.jpg";
+        refBackImg.src = customBackSrc || "assets/frock_flat_back.jpg";
+        
+        if (pGender === 'Boy') {
+          document.getElementById('lbl-pose-0').innerText = "Front Pose - Sunny Park";
+          document.getElementById('title-pose-0').innerText = "Lifestyle - Sunny Park";
+          document.getElementById('lbl-pose-1').innerText = "Side Pose - Studio Blocks";
+          document.getElementById('title-pose-1').innerText = "Lifestyle - Studio Block";
+          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Studio Block";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Walk Studio";
+          document.getElementById('lbl-pose-3').innerText = "Playful Pose - Playroom Park";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Play Park";
+          
+          document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} boy wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+        } else {
+          document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
+          document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
+          document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
+          document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
+          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
+          document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+          
+          document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} girl wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+        }
+      }
+
+      // Update grid images src
+      for (let i = 0; i < 6; i++) {
+        document.getElementById('result-img-' + i).src = imagesSrc[i];
+      }
+
+      // Prepend to project list body on dashboard home
+      const listBody = document.getElementById('projects-list-body');
+      const newRowHTML = `
+        <tr class="group hover:bg-slate-900/30 transition-all">
+          <td class="py-4 pl-4 flex items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-lg bg-slate-850 border border-slate-800 overflow-hidden shrink-0">
+              <img src="${(currentSample === 'boy') ? 'assets/boy_flat_front.jpg' : (currentSample === 'frock' ? 'assets/frock_flat_front.jpg' : (currentSample === 'ethnic' ? 'assets/exact_flat_front.jpg' : customFrontSrc))}" class="w-full h-full object-cover" alt="Thumb">
+            </div>
+            <div>
+              <p class="font-semibold text-slate-200">${pName}</p>
+              <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded mt-1 inline-block">6 Images Ready</span>
+            </div>
+          </td>
+          <td class="py-4 font-mono text-xs text-slate-400">${pSku}</td>
+          <td class="py-4">${pCat}</td>
+          <td class="py-4">
+            <span class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded bg-${(pGender === 'Girl') ? 'pink' : 'blue'}-500/10 text-${(pGender === 'Girl') ? 'pink' : 'blue'}-400 border border-${(pGender === 'Girl') ? 'pink' : 'blue'}-500/20 text-[10px] font-bold">${pGender}</span>
+              <span class="text-slate-400 text-xs">${pAge}</span>
+            </span>
+          </td>
+          <td class="py-4 text-xs text-slate-500">Just Now</td>
+          <td class="py-4 pr-4 text-right">
+            <button onclick="loadSampleProject('${currentSample}')" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-xl text-xs font-semibold text-slate-200 group-hover:bg-indigo-600 group-hover:border-indigo-500 group-hover:text-white transition-all">
+              View Results
+            </button>
+          </td>
+        </tr>
+      `;
+      listBody.insertAdjacentHTML('afterbegin', newRowHTML);
+
+      // Append new event log in admin panel
+      appendAdminConsoleLog(`[INFO] Completed processing job for ${pSku}. Extracted 6 catalog files successfully.`);
+
+      // Switch to results view
+      switchView('results');
+    }
+
+    // Load sample results straight from recent list
+    function loadSampleProject(sampleType) {
+      currentSample = sampleType;
+      
+      let pName, pSku, pCat, pAge, pGender;
+      
+      if (sampleType === 'boy') {
+        pName = "Linen Sunshine Co-ord Set";
+        pSku = "SKU-2091";
+        pCat = "Co-ord Set";
+        pAge = "4-5 Years";
+        pGender = "Boy";
+      } else if (sampleType === 'frock') {
+        pName = "Daisy Dreams Summer Frock";
+        pSku = "SKU-7798";
+        pCat = "Frock";
+        pAge = "3-4 Years";
+        pGender = "Girl";
+      } else if (sampleType === 'ethnic') {
+        pName = "Bandhani Ethnic Kurta Gharara Set";
+        pSku = "SKU-8821";
+        pCat = "Kurta Set";
+        pAge = "3-4 Years";
+        pGender = "Girl";
+      } else {
+        pName = document.getElementById('form-name').value || "Custom Outfit";
+        pSku = document.getElementById('form-sku').value || "SKU-Custom";
+        pCat = document.getElementById('form-category').value;
+        pAge = document.getElementById('form-age').value;
+        pGender = activeGenderSelection;
+      }
+
+      document.getElementById('results-sku').innerText = pSku;
+      document.getElementById('results-product-name').innerText = pName;
+      document.getElementById('results-title-meta').innerText = `${pGender} • ${pAge} • ${pCat}`;
+      
+      const refFrontImg = document.getElementById('results-ref-front');
+      const refBackImg = document.getElementById('results-ref-back');
+      const simBanner = document.getElementById('results-sim-banner');
+      
+      let imagesSrc;
+      if (sampleType === 'boy') {
+        imagesSrc = boyImages;
+        refFrontImg.src = "assets/boy_flat_front.jpg";
+        refBackImg.src = "assets/boy_flat_back.jpg";
+        simBanner.classList.add('hidden');
+        
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - Sunny Park";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Sunny Park";
+        document.getElementById('lbl-pose-1').innerText = "Side Pose - Studio Blocks";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Studio Block";
+        document.getElementById('lbl-pose-2').innerText = "Walking Pose - Studio Block";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Walk Studio";
+        document.getElementById('lbl-pose-3').innerText = "Playful Pose - Playroom Park";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Play Park";
+      } else if (sampleType === 'frock') {
+        imagesSrc = frockImages;
+        refFrontImg.src = "assets/frock_flat_front.jpg";
+        refBackImg.src = "assets/frock_flat_back.jpg";
+        simBanner.classList.add('hidden');
+        
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
+        document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
+        document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
+        document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+      } else if (sampleType === 'ethnic') {
+        imagesSrc = ethnicImages;
+        refFrontImg.src = "assets/exact_flat_front.jpg";
+        refBackImg.src = "assets/exact_flat_back.jpg";
+        simBanner.classList.add('hidden');
+        
+        document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
+        document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
+        document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
+        document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
+        document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
+        document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
+        document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
+        document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
+        document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
+        document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
+      } else {
+        imagesSrc = (pGender === 'Boy') ? boyImages : frockImages;
+        refFrontImg.src = customFrontSrc || "assets/frock_flat_front.jpg";
+        refBackImg.src = customBackSrc || "assets/frock_flat_back.jpg";
+        simBanner.classList.remove('hidden');
+        
+        if (pGender === 'Boy') {
+          document.getElementById('lbl-pose-0').innerText = "Front Pose - Sunny Park";
+          document.getElementById('title-pose-0').innerText = "Lifestyle - Sunny Park";
+          document.getElementById('lbl-pose-1').innerText = "Side Pose - Studio Blocks";
+          document.getElementById('title-pose-1').innerText = "Lifestyle - Studio Block";
+          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Studio Block";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Walk Studio";
+          document.getElementById('lbl-pose-3').innerText = "Playful Pose - Playroom Park";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Play Park";
+        } else {
+          document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
+          document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
+          document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
+          document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
+          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
+          document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+        }
+      }
+
+      for (let i = 0; i < 6; i++) {
+        document.getElementById('result-img-' + i).src = imagesSrc[i];
+      }
+
+      switchView('results');
+    }
+
+    // Filter results between White background and lifestyle tabs
+    function filterResults(filterType) {
+      currentResultsFilter = filterType;
+      
+      const tabAll = document.getElementById('results-tab-all');
+      const tabWhite = document.getElementById('results-tab-white');
+      const tabLifestyle = document.getElementById('results-tab-lifestyle');
+      
+      tabAll.className = "text-sm font-semibold pb-3 text-slate-400 hover:text-slate-200";
+      tabWhite.className = "text-sm font-semibold pb-3 text-slate-400 hover:text-slate-200";
+      tabLifestyle.className = "text-sm font-semibold pb-3 text-slate-400 hover:text-slate-200";
+      
+      const grid = document.getElementById('results-grid');
+      const cards = grid.children;
+      
+      if (filterType === 'all') {
+        tabAll.className = "text-sm font-semibold pb-3 text-indigo-400 border-b-2 border-indigo-500";
+        for (let card of cards) card.classList.remove('hidden');
+      } else if (filterType === 'white') {
+        tabWhite.className = "text-sm font-semibold pb-3 text-indigo-400 border-b-2 border-indigo-500";
+        for (let card of cards) {
+          if (card.getAttribute('data-type') === 'white') card.classList.remove('hidden');
+          else card.classList.add('hidden');
+        }
+      } else if (filterType === 'lifestyle') {
+        tabLifestyle.className = "text-sm font-semibold pb-3 text-indigo-400 border-b-2 border-indigo-500";
+        for (let card of cards) {
+          if (card.getAttribute('data-type') === 'lifestyle') card.classList.remove('hidden');
+          else card.classList.add('hidden');
+        }
+      }
+    }
+
+    // Apply color tone filters to the images to simulate AI theme generation
+    function applyLifestyleFilters(toneValue) {
+      const grid = document.getElementById('results-grid');
+      const imgs = grid.getElementsByTagName('img');
+      
+      // Let's add a quick loading spinner effect to simulate recalculation
+      appendAdminConsoleLog(`[API] Triggering theme filter modification to: [${toneValue}]`);
+      
+      for (let img of imgs) {
+        // Reset classes
+        img.className = "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105";
+        
+        if (toneValue === 'warm') {
+          img.classList.add('saturate-120', 'sepia-[15%]', 'hue-rotate-15', 'brightness-[96%]');
+        } else if (toneValue === 'cool') {
+          img.classList.add('saturate-110', 'hue-rotate-[-10deg]', 'brightness-[102%]');
+        } else if (toneValue === 'retro') {
+          img.classList.add('contrast-[90%]', 'brightness-[98%]', 'sepia-[25%]', 'grayscale-[10%]');
+        }
+      }
+    }
+
+    // Quick regenerate simulating re-render
+    function triggerQuickRegen(event) {
+      appendAdminConsoleLog(`[API] Re-routing job suite for ${document.getElementById('results-sku').innerText}`);
+      const btn = event.currentTarget;
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Regenerating...</span>`;
+      lucide.createIcons();
+
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+        lucide.createIcons();
+        alert("AI Suite regenerated successfully matching prompt changes!");
+      }, 1500);
+    }
+
+    // ZOOM LIGHTBOX FUNCTIONS
+    function openZoomModal(index) {
+      const modal = document.getElementById('zoom-modal');
+      const modalImg = document.getElementById('zoom-modal-img');
+      const modalLabel = document.getElementById('zoom-modal-label');
+      const modalTitle = document.getElementById('zoom-modal-title');
+      const modalMeta = document.getElementById('zoom-modal-meta');
+      
+      const imagesSrc = (currentSample === 'boy') ? boyImages : frockImages;
+      modalImg.src = imagesSrc[index];
+      
+      // Set details based on indices
+      const productTitle = document.getElementById('results-product-name').innerText;
+      const skuText = document.getElementById('results-sku').innerText;
+      const ageGenderText = document.getElementById('results-title-meta').innerText;
+      
+      modalTitle.innerText = productTitle;
+      modalMeta.innerText = ageGenderText;
+      
+      let label = "E-Commerce Front (White bg)";
+      if (index === 1) label = "E-Commerce Back (White bg)";
+      else if (index === 2) label = document.getElementById('lbl-pose-0').innerText;
+      else if (index === 3) label = document.getElementById('lbl-pose-1').innerText;
+      else if (index === 4) label = document.getElementById('lbl-pose-2').innerText;
+      else if (index === 5) label = document.getElementById('lbl-pose-3').innerText;
+      
+      modalLabel.innerText = label;
+
+      // Handle download button inside modal
+      document.getElementById('zoom-modal-download-btn').onclick = () => {
+        downloadSingle(index);
+      };
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeZoomModal() {
+      document.getElementById('zoom-modal').classList.add('hidden');
+    }
+
+    // Download handlers (triggers client download of specific file)
+    function downloadSingle(index) {
+      const imagesSrc = (currentSample === 'boy') ? boyImages : frockImages;
+      const fileUrl = imagesSrc[index];
+      const fileName = fileUrl.split('/').pop();
+      
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // Download all images
+    function downloadAll() {
+      const imagesSrc = (currentSample === 'boy') ? boyImages : frockImages;
+      // Download all images sequentially
+      imagesSrc.forEach((url, i) => {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = url.split('/').pop();
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, i * 400);
+      });
+      appendAdminConsoleLog(`[API] Downloader requested zip packaging for 6 assets.`);
+    }
+
+    // Share catalog notification
+    function shareProject() {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Shared link copied to clipboard!");
+    }
+
+    // ADMIN LOGS GENERATOR SIMULATION
+    function appendAdminConsoleLog(logText) {
+      const logsBox = document.getElementById('admin-logs-box');
+      if (!logsBox) return;
+      const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
+      
+      let colorClass = "text-slate-400";
+      if (logText.includes('[ERROR]')) colorClass = "text-red-400";
+      else if (logText.includes('[SUCCESS]')) colorClass = "text-emerald-400 font-semibold";
+      else if (logText.includes('[API]')) colorClass = "text-indigo-300";
+
+      const logElement = document.createElement('div');
+      logElement.className = colorClass;
+      logElement.innerText = logText.replace('[INFO]', `[INFO ${timeStr}]`)
+                                    .replace('[SUCCESS]', `[SUCCESS ${timeStr}]`)
+                                    .replace('[API]', `[API ${timeStr}]`)
+                                    .replace('[ERROR]', `[ERROR ${timeStr}]`);
+      
+      logsBox.appendChild(logElement);
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    function startLiveLogsGenerator() {
+      const mockLogPool = [
+        "[INFO] Cleaned up completed Celery job caches in Redis database.",
+        "[API] GET /api/v1/credits/usage 200 OK (11ms) from Rohit Kumar",
+        "[INFO] GPU server scale down threshold reached (Idle > 10m). Dynamic scaling activated.",
+        "[INFO] Cloudflare CDN cache status: HIT for /assets/frock_model_white_front.jpg",
+        "[API] POST /api/v1/segment/cleanup 202 Accepted (142ms) from Ananya Sharma",
+        "[SUCCESS] Background synthesis mask completed successfully for SKU-8890.",
+        "[INFO] Upload success: Isolated garment flat-lay (1.4MB) written to AWS R2 bucket.",
+        "[API] GET /api/v1/logs/stream 200 OK (8ms) from admin-agent"
+      ];
+
+      setInterval(() => {
+        if (currentView === 'admin') {
+          const randomIndex = Math.floor(Math.random() * mockLogPool.length);
+          appendAdminConsoleLog(mockLogPool[randomIndex]);
+        }
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
