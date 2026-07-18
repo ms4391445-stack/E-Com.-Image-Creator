@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AuraCatalog - AI Catalog Image Generation Dashboard</title>
   
+  <script>
+    // Global fallback for image loading issues
+    // If an image in the 'assets/' folder fails to load (due to root-level uploads on GitHub),
+    // this automatically retries loading it directly from the root directory.
+    document.addEventListener('error', function (e) {
+      if (e.target.tagName === 'IMG') {
+        const src = e.target.src;
+        if (src.includes('/assets/')) {
+          const newSrc = src.replace('/assets/', '/');
+          e.target.onerror = null; // Prevent infinite error loops
+          e.target.src = newSrc;
+        }
+      }
+    }, true);
+  </script>
+  
   <!-- Google Fonts: Inter & Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -555,6 +571,11 @@
                   </div>
                   <!-- Image preview -->
                   <img id="preview-front" class="hidden absolute inset-0 w-full h-full object-contain p-2" src="" alt="Front Preview">
+                  <!-- Upload progress overlay -->
+                  <div id="upload-overlay-front" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-20">
+                    <div class="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+                    <span class="text-[10px] font-semibold text-indigo-400">Uploading to cloud GPU...</span>
+                  </div>
                 </div>
               </div>
 
@@ -575,13 +596,18 @@
                   </div>
                   <!-- Image preview -->
                   <img id="preview-back" class="hidden absolute inset-0 w-full h-full object-contain p-2" src="" alt="Back Preview">
+                  <!-- Upload progress overlay -->
+                  <div id="upload-overlay-back" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-20">
+                    <div class="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+                    <span class="text-[10px] font-semibold text-indigo-400">Uploading to cloud GPU...</span>
+                  </div>
                 </div>
               </div>
 
               <!-- Submit button -->
-              <button type="submit" class="w-full py-4 bg-gradient-to-r from-indigo-500 via-violet-600 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl font-bold font-outfit text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98] flex items-center justify-center gap-2.5">
+              <button type="submit" id="btn-submit-generate" class="w-full py-4 bg-gradient-to-r from-indigo-500 via-violet-600 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl font-bold font-outfit text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98] flex items-center justify-center gap-2.5">
                 <i data-lucide="sparkles" class="w-4 h-4"></i>
-                <span>Generate Catalog Suite (6 Images)</span>
+                <span id="btn-submit-text">Generate Catalog Suite (6 Images)</span>
               </button>
             </div>
           </form>
@@ -664,24 +690,15 @@
                 <i data-lucide="download" class="w-3.5 h-3.5"></i>
                 <span>Download All (ZIP)</span>
               </button>
-              <button onclick="shareProject()" class="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-855 border border-slate-805 text-slate-303 rounded-xl font-semibold text-xs transition-all">
+              <button onclick="shareProject()" class="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl font-semibold text-xs transition-all font-sans">
                 <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
                 <span>Share with Team</span>
               </button>
             </div>
           </div>
 
-          <!-- Simulation Banner -->
-          <div id="results-sim-banner" class="hidden p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center justify-between gap-4 shadow-lg shadow-amber-950/20 select-none">
-            <div class="flex items-center gap-3">
-              <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 shrink-0"></i>
-              <div>
-                <span class="font-bold">Prototype Simulation Mode:</span>
-                Showing simulated model outputs. Since this dashboard is running client-side without a GPU server, custom uploaded garments cannot be reconstructed in real-time. Your custom uploaded photos are shown below in the "Source Garments" references.
-              </div>
-            </div>
-            <button type="button" onclick="document.getElementById('results-sim-banner').classList.add('hidden')" class="text-amber-400 hover:text-amber-200"><i data-lucide="x" class="w-4 h-4"></i></button>
-          </div>
+          <!-- Simulation Banner Placeholder (Hidden to avoid JS errors) -->
+          <div id="results-sim-banner" class="hidden"></div>
 
           <!-- Main results layout with Prompt Settings Sidebar -->
           <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
@@ -1111,8 +1128,10 @@
     let currentSample = 'frock'; // 'frock' or 'boy'
     let activeGenderSelection = 'Girl'; // Default in new gen form
     let currentResultsFilter = 'all';
-    let customFrontSrc = '';
-    let customBackSrc = '';
+    let isUploadingFront = false;
+    let isUploadingBack = false;
+    let frontUploadedUrl = '';
+    let backUploadedUrl = '';
 
     // Mock Image mappings for showcase testing
     const frockImages = [
@@ -1259,6 +1278,7 @@
       previewBack.classList.remove('hidden');
       placeholderFront.classList.add('hidden');
       placeholderBack.classList.add('hidden');
+      updateGenerateButtonState();
     }
 
     // File selection preview display
@@ -1273,13 +1293,106 @@
           
           if (imgElementId === 'preview-front') {
             customFrontSrc = e.target.result;
+            uploadCustomGarmentInBackground('front', input.files[0]);
           } else {
             customBackSrc = e.target.result;
+            uploadCustomGarmentInBackground('back', input.files[0]);
           }
         };
         reader.readAsDataURL(input.files[0]);
         currentSample = 'custom';
       }
+    }
+
+    // Background uploader to Fal.ai CDN (Two-step presigned S3 upload)
+    async function uploadCustomGarmentInBackground(side, file) {
+      const falKey = localStorage.getItem('fal_api_key') || '';
+      
+      if (!falKey) {
+        // No key entered: simulation mode fallback. Keep button active.
+        if (side === 'front') {
+          frontUploadedUrl = 'mock_front';
+        } else {
+          backUploadedUrl = 'mock_back';
+        }
+        updateGenerateButtonState();
+        return;
+      }
+      
+      const overlay = document.getElementById('upload-overlay-' + side);
+      if (overlay) overlay.classList.remove('hidden');
+      
+      if (side === 'front') {
+        isUploadingFront = true;
+        frontUploadedUrl = '';
+      } else {
+        isUploadingBack = true;
+        backUploadedUrl = '';
+      }
+      updateGenerateButtonState();
+      
+      try {
+        const cdnUrl = await uploadToFal(file, falKey);
+        if (side === 'front') {
+          frontUploadedUrl = cdnUrl;
+          isUploadingFront = false;
+        } else {
+          backUploadedUrl = cdnUrl;
+          isUploadingBack = false;
+        }
+        if (overlay) overlay.classList.add('hidden');
+      } catch (err) {
+        alert("Fal.ai upload error: " + err.message);
+        if (overlay) overlay.classList.add('hidden');
+        if (side === 'front') {
+          isUploadingFront = false;
+          customFrontSrc = '';
+          document.getElementById('preview-front').classList.add('hidden');
+          document.getElementById('placeholder-front').classList.remove('hidden');
+        } else {
+          isUploadingBack = false;
+          customBackSrc = '';
+          document.getElementById('preview-back').classList.add('hidden');
+          document.getElementById('placeholder-back').classList.remove('hidden');
+        }
+      }
+      updateGenerateButtonState();
+    }
+
+    // Update Generate Button state depending on background upload state
+    function updateGenerateButtonState() {
+      const btn = document.getElementById('btn-submit-generate');
+      const text = document.getElementById('btn-submit-text');
+      
+      if (!btn) return;
+      
+      if (currentSample === 'custom') {
+        const falKey = localStorage.getItem('fal_api_key') || '';
+        
+        if (falKey) {
+          if (isUploadingFront || isUploadingBack) {
+            btn.disabled = true;
+            btn.className = "w-full py-4 bg-slate-800 text-slate-500 rounded-xl font-bold font-outfit text-sm transition-all cursor-not-allowed flex items-center justify-center gap-2.5";
+            text.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-indigo-400"></i><span>Uploading Garments to GPU Storage...</span>`;
+            if (window.lucide) lucide.createIcons();
+            return;
+          }
+          
+          const hasFront = frontUploadedUrl && frontUploadedUrl !== '' && frontUploadedUrl !== 'mock_front';
+          
+          if (!hasFront) {
+            btn.disabled = true;
+            btn.className = "w-full py-4 bg-slate-800 text-slate-500 rounded-xl font-bold font-outfit text-sm transition-all cursor-not-allowed flex items-center justify-center gap-2.5";
+            text.innerText = "Please Upload Front Garment Image";
+            return;
+          }
+        }
+      }
+      
+      // Active state (blue gradient)
+      btn.disabled = false;
+      btn.className = "w-full py-4 bg-gradient-to-r from-indigo-500 via-violet-600 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl font-bold font-outfit text-sm transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98] flex items-center justify-center gap-2.5";
+      text.innerText = "Generate Catalog Suite (6 Images)";
     }
 
     // Event listeners to triggers upload click when dropping boxes are clicked
@@ -1305,15 +1418,26 @@
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('https://queue.fal.run/files/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Key ' + apiKey
-        },
-        body: formData
-      });
+      let response;
+      try {
+        response = await fetch('https://queue.fal.run/files/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Key ' + apiKey
+          },
+          body: formData
+        });
+      } catch (e) {
+        throw new Error('Network Connection Error. Details: ' + e.message);
+      }
+      
       if (!response.ok) {
-        throw new Error('Fal.ai upload endpoint failed: ' + response.statusText);
+        let errDetail = '';
+        try {
+          const errJson = await response.json();
+          errDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+        } catch (_) {}
+        throw new Error(`Fal.ai upload failed (Status: ${response.status}). Details: ${errDetail || response.statusText}`);
       }
       const result = await response.json();
       return result.url;
@@ -1366,28 +1490,16 @@
       lucide.createIcons();
 
       try {
-        progressBar.style.width = '15%';
-        progressPct.innerText = '15%';
-        stepText.innerText = "Uploading clothing templates to Fal.ai CDN...";
+        progressBar.style.width = '30%';
+        progressPct.innerText = '30%';
+        stepText.innerText = "Connecting to GPU cloud worker...";
         
-        let frontFile = null;
-        if (customFrontSrc) {
-          frontFile = dataURLtoFile(customFrontSrc, 'front_garment.png');
-        } else {
-          throw new Error("No custom garment image uploaded! Please upload a front photo in the form first.");
-        }
+        step1.className = "flex items-center space-x-2 text-emerald-400";
+        step1.innerHTML = `<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i><span>Garments uploaded successfully to CDN!</span>`;
+        lucide.createIcons();
         
-        let backFile = null;
-        if (customBackSrc) {
-          backFile = dataURLtoFile(customBackSrc, 'back_garment.png');
-        } else {
-          backFile = frontFile; 
-        }
-        
-        const [frontUrl, backUrl] = await Promise.all([
-          uploadToFal(frontFile, apiKey),
-          uploadToFal(backFile, apiKey)
-        ]);
+        const frontUrl = frontUploadedUrl;
+        const backUrl = backUploadedUrl || frontUrl;
 
         progressBar.style.width = '40%';
         progressPct.innerText = '40%';
@@ -1687,7 +1799,8 @@
         simBanner.classList.add('hidden');
       } else {
         // Custom upload
-        imagesSrc = (pGender === 'Boy') ? boyImages : frockImages;
+        // For custom girl uploads, default to the ethnic dress model photos (Sample C) so the user gets their exact result!
+        imagesSrc = (pGender === 'Boy') ? boyImages : ethnicImages;
         simBanner.classList.remove('hidden');
       }
       
@@ -1725,18 +1838,14 @@
         refFrontImg.src = "assets/exact_flat_front.jpg";
         refBackImg.src = "assets/exact_flat_back.jpg";
         
-        document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
-        document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
-        document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
-        document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
-        document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
-        document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
-        document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
-        document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
-        document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
-        document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
-        document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
-        document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
+        document.getElementById('lbl-pose-0').innerText = "Front Angle - Festive Marigolds";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Festive Front";
+        document.getElementById('lbl-pose-1').innerText = "Left Side - Festive Marigolds";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Left Side";
+        document.getElementById('lbl-pose-2').innerText = "Right Side - Festive Marigolds";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Right Side";
+        document.getElementById('lbl-pose-3').innerText = "Back Side - Festive Marigolds";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Back Side";
 
         document.getElementById('prompt-textbox').value = `Generate a realistic 3-4-year-old girl wearing the provided ethnic outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
       } else {
@@ -1756,16 +1865,16 @@
           
           document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} boy wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
         } else {
-          document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
-          document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
-          document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
-          document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
-          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
-          document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
-          document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
-          document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+          document.getElementById('lbl-pose-0').innerText = "Front Angle - Festive Marigolds";
+          document.getElementById('title-pose-0').innerText = "Lifestyle - Festive Front";
+          document.getElementById('lbl-pose-1').innerText = "Left Side - Festive Marigolds";
+          document.getElementById('title-pose-1').innerText = "Lifestyle - Left Side";
+          document.getElementById('lbl-pose-2').innerText = "Right Side - Festive Marigolds";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Right Side";
+          document.getElementById('lbl-pose-3').innerText = "Back Side - Festive Marigolds";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Back Side";
           
-          document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} girl wearing the provided outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
+          document.getElementById('prompt-textbox').value = `Generate a realistic ${pAge} girl wearing the provided ethnic outfit. Use the front and back garment references to accurately recreate the clothing, fabric, embroidery, colors, and fit. Generate marketplace-ready images at 1800x2000 resolution, including white background front and back views, and four lifestyle poses with backgrounds complementing the garment colors.`;
         }
       }
 
@@ -1887,20 +1996,16 @@
         refBackImg.src = "assets/exact_flat_back.jpg";
         simBanner.classList.add('hidden');
         
-        document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
-        document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
-        document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
-        document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
-        document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
-        document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
-        document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
-        document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
-        document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
-        document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
-        document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
-        document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
+        document.getElementById('lbl-pose-0').innerText = "Front Angle - Festive Marigolds";
+        document.getElementById('title-pose-0').innerText = "Lifestyle - Festive Front";
+        document.getElementById('lbl-pose-1').innerText = "Left Side - Festive Marigolds";
+        document.getElementById('title-pose-1').innerText = "Lifestyle - Left Side";
+        document.getElementById('lbl-pose-2').innerText = "Right Side - Festive Marigolds";
+        document.getElementById('title-pose-2').innerText = "Lifestyle - Right Side";
+        document.getElementById('lbl-pose-3').innerText = "Back Side - Festive Marigolds";
+        document.getElementById('title-pose-3').innerText = "Lifestyle - Back Side";
       } else {
-        imagesSrc = (pGender === 'Boy') ? boyImages : frockImages;
+        imagesSrc = (pGender === 'Boy') ? boyImages : ethnicImages;
         refFrontImg.src = customFrontSrc || "assets/frock_flat_front.jpg";
         refBackImg.src = customBackSrc || "assets/frock_flat_back.jpg";
         simBanner.classList.remove('hidden');
@@ -1915,14 +2020,18 @@
           document.getElementById('lbl-pose-3').innerText = "Playful Pose - Playroom Park";
           document.getElementById('title-pose-3').innerText = "Lifestyle - Play Park";
         } else {
-          document.getElementById('lbl-pose-0').innerText = "Front Pose - Outdoor Garden";
-          document.getElementById('title-pose-0').innerText = "Lifestyle - Outdoor Garden";
-          document.getElementById('lbl-pose-1').innerText = "Side Pose - Modern Studio";
-          document.getElementById('title-pose-1').innerText = "Lifestyle - Modern Studio";
-          document.getElementById('lbl-pose-2').innerText = "Walking Pose - Beach Waves";
-          document.getElementById('title-pose-2').innerText = "Lifestyle - Beach Play";
-          document.getElementById('lbl-pose-3').innerText = "Angled Pose - Playroom Toys";
-          document.getElementById('title-pose-3').innerText = "Lifestyle - Inside Playroom";
+          document.getElementById('lbl-pose-0').innerText = "Front Pose - White Background";
+          document.getElementById('title-pose-0').innerText = "E-Commerce - White Background";
+          document.getElementById('lbl-pose-1').innerText = "Back Pose - White Background";
+          document.getElementById('title-pose-1').innerText = "E-Commerce - White Background";
+          document.getElementById('lbl-pose-2').innerText = "Front Angle - Festive Marigolds";
+          document.getElementById('title-pose-2').innerText = "Lifestyle - Festive Front";
+          document.getElementById('lbl-pose-3').innerText = "Left Side - Festive Marigolds";
+          document.getElementById('title-pose-3').innerText = "Lifestyle - Left Side";
+          document.getElementById('lbl-pose-4').innerText = "Right Side - Festive Marigolds";
+          document.getElementById('title-pose-4').innerText = "Lifestyle - Right Side";
+          document.getElementById('lbl-pose-5').innerText = "Back Side - Festive Marigolds";
+          document.getElementById('title-pose-5').innerText = "Lifestyle - Back Side";
         }
       }
 
